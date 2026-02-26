@@ -1,0 +1,262 @@
+3.Intelligent Log "Anomalizer"
+Instead of just searching for "Error," this script reads a log file and uses a dictionary to count occurrences of every unique word. It then flags lines that contain words that appear in less than 1% of the total log (finding the "needle in the haystack").
+Key Libraries: collections.Counter, re.
+
+SOLUTION:
+#3.Intelligent Log "Anomalizer"
+import re
+from collections import Counter
+
+log_file_path = "log.txt"
+
+try:
+    with open(log_file_path, "r") as f:
+        lines = f.readlines()
+
+    words = []
+    for line in lines:
+        words.extend(re.findall(r"\b\w+\b", line.lower()))
+
+    word_counts = Counter(words)
+    total_words = sum(word_counts.values())
+    threshold = total_words*0.01
+
+    rare_words = {word for word,count in word_counts.items() if count < threshold}
+
+    print(f"Total unique words: {total_words}")
+    print(f"Rare words: {len(rare_words)} found")
+
+    print("\nLines flagged with rare words:")
+    for line in lines:
+        if any(word.lower() in rare_words for word in re.findall(r"\b\w+\b", line)):
+            print(f"{line} IS FLAGGED.")
+
+except FileNotFoundError:
+    print(f"File not found!")
+except Exception as e:
+    print(f"An error has occurred!")
+	
+2. Local Port & Process "Traffic Cop"
+A tool that maps every open network port on the machine to its specific Process ID (PID) and the user running it. It generates a summary of "Suspicious Ports" (e.g., anything open that isn't on a pre-approved whitelist).
+Key Libraries: psutil, socket.
+
+SOLUTION:
+
+8. Local "Web-Hook" Trigger
+A small Python web server that stays idle until it receives a specific "GET" request from another machine on the local network. Upon receiving it, it executes a pre-defined local maintenance script (like clearing logs).
+Key Libraries: flask or http.server.
+
+SOLUTION:
+#8.Local "Web-Hook" Trigger
+from flask import Flask
+import os
+
+app = Flask(__name__)
+
+TRIGGER_PATH = "/run-maintenance"
+
+def run_maintenance():
+    log_file = "app.log"
+    
+    if os.path.exists(log_file):
+        with open(log_file, "w") as f:
+            pass
+        print("Cleared log file!")
+    else:
+        print("Log file not found!")
+
+    print("Maintenance is done.")
+
+@app.route(TRIGGER_PATH, methods=["GET"])
+def local_webhook_trigger():
+    run_maintenance()
+    return "Maintenance is going to happen.\n"
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=9000)
+	
+9. Secure File "Vault" with Audit Logs
+A CLI tool that encrypts/decrypts files in a specific folder using a master password. It must maintain an audit.log of every successful and failed attempt to access the vault.
+Key Libraries: cryptography.fernet, logging.
+
+SOLUTION:
+#9.Secure File "Vault" with Audit Logs
+import os, getpass, logging
+from cryptography.fernet import Fernet, InvalidToken
+
+logging.basicConfig(filename="audit.log",level=logging.INFO,format="%(asctime)s | %(message)s")
+
+def log(event):
+    logging.info(event)
+
+def get_key_from_password(password):
+    return Fernet.generate_key()[:32]
+
+def encrypt_file(path, fernet):
+    data = open(path, "rb").read()
+    enc = fernet.encrypt(data)
+    open(path + ".enc", "wb").write(enc)
+    os.remove(path)
+
+def decrypt_file(path, fernet):
+    data = open(path, "rb").read()
+    dec = fernet.decrypt(data)
+    new = path.replace(".enc", "")
+    open(new, "wb").write(dec)
+    os.remove(path)
+
+def main():
+    print("Need? 1) encrypt  2) decrypt")
+    choice = input("Enter choice: ")
+
+    password = getpass.getpass("Master password: ")
+    key = get_key_from_password(password)
+    f = Fernet(key)
+
+    try:
+        if choice == "1":
+            encrypt_file("secret.txt", f)
+            print("Encrypted.")
+            log("encrypt success")
+        elif choice == "2":
+            decrypt_file("secret.txt.enc", f)
+            print("Decrypted.")
+            log("decrypt success")
+        else:
+            print("Invalid Choice.")
+            log("invalid")
+    except InvalidToken:
+        print("Wrong password.")
+        log("decrypt failure")
+    except Exception as e:
+        print("Error.")
+        log("error failure")
+
+main()
+
+4. The "Disk Space" Emergency Brake
+A background daemon that monitors disk usage. If a specific partition hits 90%, it identifies the top 5 largest files and moves them to a compressed .zip archive on a different drive (or a /tmp folder) to prevent system a crash.
+Key Libraries: os, zipfile, platform.
+
+SOLUTION:
+
+
+5. Automated Config "Validator"
+DevOps involves many .yaml, .json, and .ini files. This script takes a "Schema" and validates that all configuration files in a folder follow the rules (e.g., "Port" must be an integer between 1024-65535).
+Key Libraries: yaml, json, configparser.
+
+SOLUTION:
+#5.Automated Config "Validator"
+import os
+import json, configparser, yaml
+
+FOLDER = "./configs"
+
+def valid_port(v):
+    return isinstance(v, int) and 1024 <= v <= 65535
+
+def check(data, file):
+    ok = valid_port(data.get("port"))
+    print(file, "OK" if ok else "INVALID")
+
+for f in os.listdir(FOLDER):
+    path = os.path.join(FOLDER, f)
+
+    if f.endswith(".json"):
+        d = json.load(open(path))
+        check(d, f)
+
+    elif f.endswith((".yml",".yaml")):
+        d = yaml.safe_load(open(path))
+        check(d, f)
+
+    elif f.endswith(".ini"):
+        c = configparser.ConfigParser()
+        c.read(path)
+        d = {k:int(v) for k,v in c["DEFAULT"].items()}
+        check(d, f)
+		
+6. Multi-Threaded Local File Searcher
+Build a tool that mimics the find command but uses Python's threading to search for a specific string inside thousands of files simultaneously, returning the line number and a "snippet" of the context.
+Key Libraries: threading or concurrent.futures, mmap.
+
+SOLUTION:
+#6.Multi-Threaded Local File Searcher
+import os, mmap
+from concurrent.futures import ThreadPoolExecutor
+
+SEARCH_IN = "/home" 
+TEXT = b"password" 
+THREADS = 10 
+
+def search_file(path):
+    try:
+        with open(path, "rb", 0) as f:
+            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+            idx = mm.find(TEXT)
+
+            if idx != -1:
+                line = mm[:idx].count(b"\n") + 1
+                snippet = mm[idx: idx+40]
+                print(f"{path}  | line {line} | snippet: {snippet}")
+    except:
+        pass
+
+def all_files(folder):
+    for r,d,fs in os.walk(folder):
+        for f in fs:
+            yield os.path.join(r, f)
+
+def main():
+    with ThreadPoolExecutor(max_workers=THREADS) as t:
+        t.map(search_file, all_files(SEARCH_IN))
+
+if __name__ == "__main__":
+    main()
+	
+7. System "Snapshot" Comparison Tool
+This script takes a "snapshot" of the machine (installed packages, environment variables, and active users) and saves it to a file. Users can run it again later to see a "Diff" of exactly what changed on the system.
+Key Libraries: subprocess, difflib.
+
+SOLUTION:
+#7.System "Snapshot" Comparison Tool
+import os, sys
+import subprocess, difflib
+
+def snap():
+    txt  = "\nPACKAGES:\n" + subprocess.getoutput("pip freeze")
+    txt += "\nENV:\n" + "\n".join(f"{k}={v}" for k,v in os.environ.items())
+    txt += "\nUSERS:\n" + subprocess.getoutput("who")
+    return txt
+
+if sys.argv[1] == "snap":
+    open(sys.argv[2], "w").write(snap())
+    print("Snapshot is saved!")
+
+elif sys.argv[1] == "diff":
+    a = open(sys.argv[2]).read().splitlines()
+    b = open(sys.argv[3]).read().splitlines()
+    print("\n".join(difflib.unified_diff(a, b)))
+	
+MY USE CASE PROBLEM:
+SOLUTION:
+#MY USE CASE PROBLEM
+#IMAGE RESIZER: Resize all images in a folder to a given width and height using Pillow
+from PIL import Image
+import os
+
+FOLDER = "./images" 
+OUTPUT = "./resized" 
+WIDTH, HEIGHT = 800, 600 
+
+os.makedirs(OUTPUT, exist_ok=True)
+
+for file in os.listdir(FOLDER):
+    if file.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".bmp")):
+        path = os.path.join(FOLDER, file)
+        img = Image.open(path)
+        img = img.resize((WIDTH, HEIGHT), Image.ANTIALIAS)
+
+        out_path = os.path.join(OUTPUT, file)
+        img.save(out_path)
+        print("Resized Finish!")

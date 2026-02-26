@@ -1,0 +1,9 @@
+{
+  "name": "John",
+  "email": "john@test.com"
+}
+
+{
+  "name": "Laptop",
+  "price": 75000
+}
