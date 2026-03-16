@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+
+  mysql-service:
+    image: mysql:8
+    container_name: mysql-service
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: demo
+      MYSQL_USER: demo
+      MYSQL_PASSWORD: demo
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  springboot-app:
+    build: .
+    container_name: springboot-app
+    restart: always
+    depends_on:
+      - mysql-service
+    ports:
+      - "8080:8080"
+    environment:
+      # Database connection
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-service:3306/demo
+      SPRING_DATASOURCE_USERNAME: demo
+      SPRING_DATASOURCE_PASSWORD: demo
+
+      # Variables used in your webpage
+      APPLICATION_NAME: Spring Boot Kubernetes Demo
+      ENVIRONMENT: Development
+      CONFIGMAP_MESSAGE: Hello from Docker Compose
+      SECRET_PASSWORD: mypassword123
+      POD_NAME: springboot-container
+
+volumes:
+  mysql-data:

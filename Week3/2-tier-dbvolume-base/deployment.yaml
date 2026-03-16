@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: springboot-deployment
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: springboot
+
+  template:
+    metadata:
+      labels:
+        app: springboot
+
+    spec:
+      containers:
+      - name: springboot-container
+        image: jayadevarun2003/springk8simg:v2
+
+        ports:
+        - containerPort: 8080
+
+        env:
+        - name: APP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: springboot-config
+              key: APP_NAME
+
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: springboot-config
+              key: ENVIRONMENT
+
+        - name: APP_MESSAGE
+          valueFrom:
+            configMapKeyRef:
+              name: springboot-config
+              key: APP_MESSAGE
+
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: springboot-secret
+              key: DB_PASSWORD
