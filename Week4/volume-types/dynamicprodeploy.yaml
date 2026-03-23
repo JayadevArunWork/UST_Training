@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dynamic-nfs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nfs-pod
+  template:
+    metadata:
+      labels:
+        app: nfs-pod
+    spec:
+      containers:
+      - name: busybox
+        image: busybox
+        command: ["/bin/sh", "-c", "sleep 3600"]
+        volumeMounts:
+        - name: nfs-pv
+          mountPath: /data
+
+      volumes:
+      - name: nfs-pv
+        persistentVolumeClaim:
+          claimName: nfs-pvc

@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nfs-pod
+  template:
+    metadata:
+      labels:
+        app: nfs-pod
+    spec:
+      containers:
+      - name: busybox
+        image: busybox
+        command: ["/bin/sh", "-c", "sleep 3600"]
+        volumeMounts:
+        - name: nfs
+          mountPath: /data
+
+      volumes:
+      - name: nfs
+        persistentVolumeClaim:
+          claimName: nfs

@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hostpath-clean-demo
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command: ["/bin/bash", "-c", "sleep infinity"]
+    volumeMounts:
+    - name: host-vol
+      mountPath: /data
+
+  - name: centos
+    image: centos:7
+    command: ["/bin/bash", "-c", "sleep infinity"]
+    volumeMounts:
+    - name: host-vol
+      mountPath: /data
+
+  volumes:
+  - name: host-vol
+    hostPath:
+      path: /tmp/k8s-hostpath-demo
+      type: DirectoryOrCreate

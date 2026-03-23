@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: emptydir-diff-demo
+spec:
+  containers:
+  - name: ubuntu-writer
+    image: ubuntu
+    command: ["/bin/bash", "-c", "sleep infinity"]
+    volumeMounts:
+    - name: shared-vol
+      mountPath: /data
+
+  - name: centos-writer
+    image: centos:7
+    command: ["/bin/bash", "-c", "sleep infinity"]
+    volumeMounts:
+    - name: shared-vol
+      mountPath: /data
+
+  volumes:
+  - name: shared-vol
+    emptyDir: {}
