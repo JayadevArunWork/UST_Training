@@ -1,0 +1,208 @@
+ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key snapshot save /opt/snapshot.db
+
+
+
+mv /etc/kubernetes/manifests/kube-apiserver.yaml /opt/backup-manifests/ 
+
+mv /etc/kubernetes/manifests/etcd.yaml /opt/backup-manifests/
+
+
+
+ETCDCTL_API=3 etcdctl snapshot restore /opt/snapshot.db --data-dir=/var/lib/etcd-restored --name=master --initial-cluster=master=https://172.31.42.251:2380 --initial-advertise-peer-urls=https://172.31.42.251:2380
+
+
+vi /opt/backup-manifests/etcd.yaml
+
+
+
+mv /opt/backup-manifests/etcd.yaml /etc/kubernetes/manifests/ 
+
+mv /opt/backup-manifests/kube-apiserver.yaml /etc/kubernetes/manifests/
+
+
+
+Cluster Maintainence:
+  1)Node Maintainence(cordon and draining)
+  2)Cluster upgrading
+  3)Etcd backup and Recovering
+
+
+
+
+TASK 1: NODE MAINTENANCE (DRAINING NODES)
+🧠 Objective
+Safely take a node out for maintenance
+Ensure zero downtime
+Reschedule workloads
+🧩 STEP 0: Verify Cluster
+kubectl get nodes
+kubectl get pods -A
+👉 Ensure all nodes are Ready
+
+
+🧪 STEP 1: Create Test Workload
+kubectl create deployment nginx-web --image=nginx --replicas=3
+kubectl get pods -o wide
+👉 Observe:
+Pods running on worker node
+
+🚫 STEP 2: Cordon Node
+kubectl cordon <worker-node>
+kubectl get nodes
+👉 Output:
+Ready,SchedulingDisabled
+✔️ Meaning:
+No new pods will be scheduled
+
+
+💣 STEP 3: Drain Node
+kubectl drain <worker-node> --ignore-daemonsets --delete-emptydir-data
+🔍 What happens internally
+Pods are evicted
+Deployment recreates them on other nodes
+Node becomes empty (except DaemonSets)
+⚠️ Important Flags
+Flag	Meaning
+--ignore-daemonsets	Keeps system pods
+--delete-emptydir-data	Deletes temp storage
+--force	Force remove unmanaged pods
+
+
+🔎 STEP 4: Verify
+kubectl get pods -o wide
+👉 You should see:
+Pods moved to another node
+
+
+🔧 STEP 5: Perform Maintenance (Simulated)
+Examples:
+sudo apt update
+sudo reboot
+
+
+🔓 STEP 6: Uncordon Node
+kubectl uncordon <worker-node>
+
+
+🔁 STEP 7: Verify Again
+kubectl get nodes
+kubectl get pods -o wide
+⚠️ REAL SCENARIOS
+
+❌ Pods not rescheduling
+Check:
+kubectl describe pod <pod>
+Possible reasons:
+NodeSelector
+Taints
+❌ Local storage issue
+Pods using emptyDir → data lost
+Local PV → pod stuck
+🎤 HOW TO EXPLAIN
+“Drain safely evicts pods while ensuring workloads are recreated elsewhere. It does not affect persistent storage or services.”
+
+
+🚀 TASK 2: CLUSTER UPGRADE (WITH DOWNGRADE + UPGRADE)
+🧠 Objective
+Understand full lifecycle:
+Downgrade (lab)
+Upgrade (real scenario)
+⚠️ IMPORTANT RULE
+❌ Downgrade is NOT supported
+✅ Only for learning/demo
+🧩 PART A: DOWNGRADE 1.34 → 1.33 (LAB)
+
+
+💾 STEP 0: BACKUP etcd
+ETCDCTL_API=3 etcdctl snapshot save snapshot.db \
+--endpoints=https://127.0.0.1:2379 \
+--cacert=/etc/kubernetes/pki/etcd/ca.crt \
+--cert=/etc/kubernetes/pki/etcd/server.crt \
+--key=/etc/kubernetes/pki/etcd/server.key
+
+
+🔄 STEP 1: CHANGE REPO VERSION
+sudo nano /etc/apt/sources.list.d/kubernetes.list
+👉 Change:
+v1.34 → v1.33
+
+🔄 STEP 2: UPDATE + VERIFY
+sudo apt-get update
+apt-cache madison kubeadm
+👉 This is VERY IMPORTANT
+✔️ Shows available versions
+
+
+📦 STEP 3: INSTALL OLDER VERSION
+sudo apt-get install -y kubeadm=1.33.x-00
+
+
+⚙️ STEP 4: FORCE DOWNGRADE
+sudo kubeadm upgrade apply v1.33.x --force
+
+
+📦 STEP 5: DOWNGRADE kubelet + kubectl
+sudo apt-get install -y kubelet=1.33.x-00 kubectl=1.33.x-00
+sudo systemctl restart kubelet
+
+
+🔍 VERIFY
+kubectl get nodes
+
+
+🧱 WORKER NODE DOWNGRADE
+kubectl drain <node> --ignore-daemonsets
+sudo apt-get install -y kubeadm=1.33.x-00
+sudo kubeadm upgrade node
+sudo apt-get install -y kubelet=1.33.x-00 kubectl=1.33.x-00
+sudo systemctl restart kubelet
+kubectl uncordon <node>
+
+
+
+🚀 PART B: UPGRADE 1.33 → 1.34
+🔄 STEP 1: CHANGE REPO BACK
+sudo nano /etc/apt/sources.list.d/kubernetes.list
+👉 Change:
+v1.33 → v1.34
+🔄 STEP 2: UPDATE + CHECK
+sudo apt-get update
+apt-cache madison kubeadm
+📦 STEP 3: UPGRADE kubeadm
+sudo apt-get install -y kubeadm=1.34.x-00
+📋 STEP 4: PLAN
+kubeadm upgrade plan
+⚙️ STEP 5: APPLY UPGRADE
+sudo kubeadm upgrade apply v1.34.x
+📦 STEP 6: UPGRADE kubelet + kubectl
+sudo apt-get install -y kubelet=1.34.x-00 kubectl=1.34.x-00
+sudo systemctl restart kubelet
+
+
+
+🧱 STEP 7: WORKER NODES
+kubectl drain <node> --ignore-daemonsets
+sudo apt-get install -y kubeadm=1.34.x-00
+sudo kubeadm upgrade node
+sudo apt-get install -y kubelet=1.34.x-00 kubectl=1.34.x-00
+sudo systemctl restart kubelet
+kubectl uncordon <node>
+
+
+
+🔍 FINAL VERIFY
+kubectl get nodes
+kubectl get pods -A
+🔥 MOST IMPORTANT TEACHING POINTS
+✅ Always say this in class:
+“Repo version must match Kubernetes version”
+“Always use apt-cache madison before installing”
+“Control plane first, workers next”
+“Backup etcd before upgrade”
+🎯 DEMO FLOW (BEST FOR YOU)
+Deploy nginx
+Drain node → show rescheduling
+Downgrade control plane
+Upgrade back
+Show everything working
+
